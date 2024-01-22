@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<div>
+  Open devtools and go to memory tab. <br />Click Run and terminate worker btn
+  several times. <br />
+  Click garbage collect button, then take heap snapshot. <br />
+  See that ProcessorWorker was not garbage collected even though there should no
+  longer be a reference to it.
+</div>
+<button id="runAndTerminateBtn" class="btn btn--big">
+  Run and terminate worker
+</button>
+<button id="runThenTerminateBtn" class="btn btn--big">
+  Run then terminate
+</button>
+<script src="https://unpkg.com/comlink/dist/umd/comlink.js"></script>
+<!-- <script src="../../../dist/umd/comlink.js"></script> -->
+<script>
+  class WorkerProcessor {
+    constructor() {
+      this.worker = new Worker("./Processor.worker.js");
+      this.remote = Comlink.wrap(this.worker);
+    }
+
+    async process(array) {
+      console.log("process started");
+      if (!this.remote) {
+        throw new Error("No remote");
+      }
+      return await this.remote.process(array);
+    }
+
+    terminate() {
+      this.shutdown = true;
+      // Uncommenting either line below fixes the memory leak
+      // this.remote = undefined;
+      // this.remote[Comlink.releaseProxy]();
+      this.worker.terminate();
+    }
+  }
+
+  document
+    .querySelector("#runAndTerminateBtn")
+    .addEventListener("click", () => {
+      const processor = new WorkerProcessor();
+      processor.process(new Uint8Array(10));
+      processor.terminate();
+    });
+  document
+    .querySelector("#runThenTerminateBtn")
+    .addEventListener("click", () => {
+      const processor = new WorkerProcessor();
+      processor.process(new Uint8Array(10)).finally(() => {
+        processor.terminate();
+      });
+    });
+</script>
